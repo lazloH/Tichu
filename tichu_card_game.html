@@ -1,0 +1,2025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tichu — Classic 4-Player Partnership Card Game</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --felt-dark: #07281b;
+      --felt-mid: #0d422d;
+      --felt-light: #145a3e;
+      --gold: #e6b84c;
+      --gold-bright: #fcd34d;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at 50% 45%, var(--felt-light) 0%, var(--felt-mid) 48%, var(--felt-dark) 100%);
+      color: #f8fafc;
+      overflow-x: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .font-display {
+      font-family: 'Cinzel', serif;
+    }
+
+    /* Felt texture overlay */
+    .felt-overlay {
+      background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 0);
+      background-size: 16px 16px;
+    }
+
+    /* Card Styling */
+    .playing-card {
+      width: 68px;
+      height: 98px;
+      background: linear-gradient(160deg, #ffffff 0%, #f3f4f6 100%);
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+      transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease, border-color 0.18s ease;
+      position: relative;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    @media (min-width: 640px) {
+      .playing-card {
+        width: 80px;
+        height: 114px;
+      }
+    }
+
+    .playing-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 12px 20px rgba(0, 0, 0, 0.55);
+      z-index: 20;
+    }
+
+    .playing-card.selected {
+      transform: translateY(-20px);
+      box-shadow: 0 14px 24px rgba(252, 211, 77, 0.45), 0 0 0 2.5px #f59e0b;
+      z-index: 30;
+    }
+
+    .playing-card.received-highlight {
+      box-shadow: 0 0 0 2.5px #38bdf8, 0 8px 18px rgba(56, 189, 248, 0.5);
+    }
+
+    .playing-card.mini {
+      width: 52px;
+      height: 74px;
+      cursor: default;
+      border-radius: 7px;
+    }
+    .playing-card.mini:hover {
+      transform: none;
+    }
+
+    /* Card Back */
+    .card-back {
+      background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #450a0a 100%);
+      border: 2px solid #eab308;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.45);
+    }
+    .card-back-pattern {
+      background-image: repeating-linear-gradient(
+        45deg,
+        rgba(234, 179, 8, 0.15) 0px,
+        rgba(234, 179, 8, 0.15) 4px,
+        transparent 4px,
+        transparent 8px
+      );
+    }
+
+    /* Suit colors */
+    .suit-jade { color: #15803d; }
+    .suit-sword { color: #1e293b; }
+    .suit-pagoda { color: #1d4ed8; }
+    .suit-star { color: #dc2626; }
+    .suit-special { color: #7e22ce; }
+
+    /* Custom Scrollbar for Log */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 4px;
+    }
+
+    /* Turn glow animation */
+    @keyframes pulseGold {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.5); }
+      50% { box-shadow: 0 0 0 8px rgba(250, 204, 21, 0); }
+    }
+    .active-turn-ring {
+      animation: pulseGold 1.8s infinite;
+      border-color: #facc15 !important;
+    }
+
+    /* Pass slot dropzone */
+    .pass-slot {
+      min-height: 118px;
+      border: 2px dashed rgba(252, 211, 77, 0.45);
+      background: rgba(6, 40, 27, 0.55);
+      transition: all 0.2s ease;
+    }
+    .pass-slot:hover {
+      border-color: rgba(252, 211, 77, 0.9);
+      background: rgba(13, 66, 45, 0.75);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between felt-overlay">
+
+  <!-- TOP HUD BAR -->
+  <header class="w-full bg-black/45 backdrop-blur-md border-b border-amber-500/25 px-3 py-2 sm:px-6 flex flex-wrap items-center justify-between gap-2 z-40">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 font-display font-extrabold text-xl shadow-md">
+        雀
+      </div>
+      <div>
+        <h1 class="font-display font-bold text-amber-300 text-base sm:text-lg tracking-wider leading-tight">TICHU</h1>
+        <p class="text-[11px] text-emerald-200/80" id="round-indicator">Round 1 • Target: 1000 pts</p>
+      </div>
+    </div>
+
+    <!-- Scoreboard Pill -->
+    <div class="flex items-center gap-2 sm:gap-4 bg-black/40 border border-white/10 rounded-xl px-3 py-1.5">
+      <div class="text-center">
+        <div class="text-[10px] uppercase tracking-wider text-emerald-300 font-semibold">You & North</div>
+        <div class="text-base sm:text-lg font-bold text-white" id="score-us">0</div>
+      </div>
+      <div class="h-7 w-px bg-white/15"></div>
+      <div class="text-center">
+        <div class="text-[10px] uppercase tracking-wider text-rose-300 font-semibold">West & East</div>
+        <div class="text-base sm:text-lg font-bold text-white" id="score-them">0</div>
+      </div>
+    </div>
+
+    <!-- Active Wish Badge + Utility Buttons -->
+    <div class="flex items-center gap-2">
+      <div id="wish-badge" class="hidden items-center gap-1.5 bg-amber-500/20 border border-amber-400 text-amber-200 px-2.5 py-1 rounded-lg text-xs font-semibold animate-pulse">
+        <span>✨ Wish:</span>
+        <span id="wish-rank-display" class="font-bold text-white text-sm">A</span>
+      </div>
+      <button onclick="UI.toggleModal('rules-modal', true)" class="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium text-emerald-100 border border-white/10 transition">
+        Rules & Combos
+      </button>
+      <button onclick="UI.toggleModal('settings-modal', true)" class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-xs font-medium text-amber-200 border border-amber-400/30 transition">
+        New Game
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN GAME TABLE -->
+  <main class="flex-1 relative flex flex-col justify-between max-w-6xl w-full mx-auto px-2 sm:px-4 py-2 sm:py-3">
+
+    <!-- NORTH PLAYER (PARTNER) -->
+    <div class="flex flex-col items-center justify-center">
+      <div id="seat-2" class="bg-black/35 border border-white/15 rounded-2xl px-3.5 py-1.5 flex items-center gap-3 transition-all">
+        <div class="relative">
+          <div class="w-8 h-8 rounded-full bg-emerald-700 border border-emerald-400 flex items-center justify-center font-bold text-xs">N</div>
+          <span id="out-badge-2" class="hidden absolute -top-1 -right-2 bg-amber-400 text-slate-950 text-[10px] font-extrabold px-1.5 rounded-full">1st</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="font-semibold text-xs sm:text-sm text-emerald-200">Partner (North)</span>
+            <span id="call-badge-2" class="hidden text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500 text-slate-950">TICHU</span>
+          </div>
+          <div class="text-[11px] text-slate-300 flex items-center gap-2">
+            <span id="cards-count-2">14 cards</span>
+            <span>•</span>
+            <span id="pts-won-2">0 pts</span>
+          </div>
+        </div>
+        <!-- Mini Card Backs -->
+        <div id="hand-preview-2" class="hidden sm:flex -space-x-3 ml-1"></div>
+      </div>
+    </div>
+
+    <!-- MIDDLE ROW: WEST + CENTER ARENA + EAST -->
+    <div class="flex-1 grid grid-cols-12 items-center gap-2 my-1 sm:my-2">
+
+      <!-- WEST PLAYER (OPPONENT) -->
+      <div class="col-span-3 sm:col-span-2 flex flex-col items-start justify-center">
+        <div id="seat-1" class="w-full bg-black/35 border border-white/15 rounded-2xl p-2 sm:p-3 flex flex-col items-center text-center transition-all">
+          <div class="relative mb-1">
+            <div class="w-8 h-8 rounded-full bg-rose-800 border border-rose-400 flex items-center justify-center font-bold text-xs">W</div>
+            <span id="out-badge-1" class="hidden absolute -top-1 -right-3 bg-amber-400 text-slate-950 text-[10px] font-extrabold px-1.5 rounded-full">1st</span>
+          </div>
+          <span class="font-semibold text-xs sm:text-sm text-rose-200">West</span>
+          <span id="call-badge-1" class="hidden mt-0.5 text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500 text-slate-950">TICHU</span>
+          <div class="text-[11px] text-slate-300 mt-1" id="cards-count-1">14 cards</div>
+          <div class="text-[10px] text-slate-400" id="pts-won-1">0 pts</div>
+        </div>
+      </div>
+
+      <!-- CENTER TABLE ARENA (TRICK PILE, SCHUPFEN, BIDS, LOG) -->
+      <div class="col-span-6 sm:col-span-8 flex flex-col items-center justify-center min-h-[230px] sm:min-h-[260px] relative">
+
+        <!-- Status Banner -->
+        <div id="table-status-banner" class="mb-2 px-4 py-1.5 rounded-full bg-black/50 border border-amber-400/30 text-amber-200 text-xs sm:text-sm font-medium text-center shadow">
+          Welcome to Tichu! Dealing first 8 cards...
+        </div>
+
+        <!-- PHASE 1: GRAND TICHU PROMPT -->
+        <div id="grand-tichu-panel" class="hidden bg-slate-900/90 border border-amber-400/50 rounded-2xl p-4 sm:p-5 text-center max-w-md shadow-2xl z-20">
+          <h2 class="font-display font-bold text-amber-300 text-lg mb-1">Grand Tichu Call?</h2>
+          <p class="text-xs text-slate-300 mb-4">You have seen your first 8 cards. Call <b>Grand Tichu</b> (+200 / -200 pts) before seeing the remaining 6 cards?</p>
+          <div class="flex justify-center gap-3">
+            <button onclick="Game.humanGrandTichu(true)" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs sm:text-sm shadow-lg transition">
+              Call Grand Tichu!
+            </button>
+            <button onclick="Game.humanGrandTichu(false)" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs sm:text-sm border border-white/15 transition">
+              Pass
+            </button>
+          </div>
+        </div>
+
+        <!-- PHASE 2: SCHUPFEN (PASS 3 CARDS) PANEL -->
+        <div id="schupfen-panel" class="hidden w-full max-w-xl bg-slate-900/90 border border-amber-400/40 rounded-2xl p-3 sm:p-4 text-center shadow-2xl z-20">
+          <h2 class="font-display font-bold text-amber-300 text-sm sm:text-base mb-0.5">Schupfen — Pass 3 Cards</h2>
+          <p class="text-[11px] sm:text-xs text-slate-300 mb-3">Select a card from your hand, then click a slot below (or click a slot card to return it).</p>
+          <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-3">
+            <div onclick="Game.assignSchupfenSlot('left')" class="pass-slot rounded-xl p-2 flex flex-col items-center justify-center cursor-pointer">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-rose-300 mb-1">To West (Opp)</span>
+              <div id="schupfen-slot-left" class="flex items-center justify-center min-h-[76px] text-xs text-slate-400">Click to place</div>
+            </div>
+            <div onclick="Game.assignSchupfenSlot('partner')" class="pass-slot rounded-xl p-2 flex flex-col items-center justify-center cursor-pointer">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-300 mb-1">To North (Partner)</span>
+              <div id="schupfen-slot-partner" class="flex items-center justify-center min-h-[76px] text-xs text-slate-400">Click to place</div>
+            </div>
+            <div onclick="Game.assignSchupfenSlot('right')" class="pass-slot rounded-xl p-2 flex flex-col items-center justify-center cursor-pointer">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-rose-300 mb-1">To East (Opp)</span>
+              <div id="schupfen-slot-right" class="flex items-center justify-center min-h-[76px] text-xs text-slate-400">Click to place</div>
+            </div>
+          </div>
+          <button id="confirm-schupfen-btn" onclick="Game.confirmSchupfen()" disabled class="px-5 py-2 rounded-xl bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-400 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition shadow">
+            Confirm & Exchange Cards
+          </button>
+        </div>
+
+        <!-- RECEIVED SCHUPFEN SUMMARY OVERLAY -->
+        <div id="received-panel" class="hidden w-full max-w-lg bg-slate-900/95 border border-sky-400/50 rounded-2xl p-4 text-center shadow-2xl z-20">
+          <h3 class="font-display font-bold text-sky-300 text-base mb-1">Cards Received!</h3>
+          <p class="text-xs text-slate-300 mb-3">These cards have been added to your hand (highlighted in blue).</p>
+          <div class="grid grid-cols-3 gap-2 mb-3">
+            <div class="bg-black/40 rounded-xl p-2 flex flex-col items-center">
+              <span class="text-[10px] text-rose-300 font-semibold mb-1">From West</span>
+              <div id="recv-from-left"></div>
+            </div>
+            <div class="bg-black/40 rounded-xl p-2 flex flex-col items-center">
+              <span class="text-[10px] text-emerald-300 font-semibold mb-1">From North</span>
+              <div id="recv-from-partner"></div>
+            </div>
+            <div class="bg-black/40 rounded-xl p-2 flex flex-col items-center">
+              <span class="text-[10px] text-rose-300 font-semibold mb-1">From East</span>
+              <div id="recv-from-right"></div>
+            </div>
+          </div>
+          <button onclick="Game.acknowledgeReceived()" class="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs sm:text-sm transition">
+            Start Playing
+          </button>
+        </div>
+
+        <!-- PHASE 3: ACTIVE TRICK DISPLAY -->
+        <div id="trick-arena" class="w-full flex flex-col items-center justify-center">
+          <div id="current-trick-cards" class="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 min-h-[118px] px-3 py-2 rounded-2xl bg-black/25 border border-white/10 min-w-[210px]">
+            <span class="text-xs text-emerald-200/60 italic">Table is open — Lead any combination</span>
+          </div>
+          <div id="trick-meta" class="mt-1.5 text-xs text-emerald-200/90 font-medium flex items-center gap-3">
+            <span id="trick-owner-label"></span>
+            <span id="trick-points-label" class="text-amber-300"></span>
+          </div>
+        </div>
+
+        <!-- COMPACT GAME LOG -->
+        <div id="game-log" class="mt-2 w-full max-w-md h-16 overflow-y-auto bg-black/35 border border-white/10 rounded-xl px-3 py-1.5 text-[11px] text-slate-300 space-y-0.5">
+        </div>
+      </div>
+
+      <!-- EAST PLAYER (OPPONENT) -->
+      <div class="col-span-3 sm:col-span-2 flex flex-col items-end justify-center">
+        <div id="seat-3" class="w-full bg-black/35 border border-white/15 rounded-2xl p-2 sm:p-3 flex flex-col items-center text-center transition-all">
+          <div class="relative mb-1">
+            <div class="w-8 h-8 rounded-full bg-rose-800 border border-rose-400 flex items-center justify-center font-bold text-xs">E</div>
+            <span id="out-badge-3" class="hidden absolute -top-1 -right-3 bg-amber-400 text-slate-950 text-[10px] font-extrabold px-1.5 rounded-full">1st</span>
+          </div>
+          <span class="font-semibold text-xs sm:text-sm text-rose-200">East</span>
+          <span id="call-badge-3" class="hidden mt-0.5 text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500 text-slate-950">TICHU</span>
+          <div class="text-[11px] text-slate-300 mt-1" id="cards-count-3">14 cards</div>
+          <div class="text-[10px] text-slate-400" id="pts-won-3">0 pts</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SOUTH PLAYER (HUMAN) AREA -->
+    <div class="w-full flex flex-col items-center pt-1 pb-2">
+
+      <!-- Selected Combo Preview + Action Controls -->
+      <div class="w-full max-w-3xl flex flex-wrap items-center justify-between gap-2 mb-2 px-2">
+        <div id="seat-0" class="flex items-center gap-2 bg-black/40 border border-white/15 rounded-xl px-3 py-1 transition-all">
+          <div class="w-6 h-6 rounded-full bg-emerald-600 border border-emerald-300 flex items-center justify-center font-bold text-[11px]">YOU</div>
+          <span class="text-xs font-semibold text-emerald-200">South</span>
+          <span id="call-badge-0" class="hidden text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500 text-slate-950">TICHU</span>
+          <span id="out-badge-0" class="hidden bg-amber-400 text-slate-950 text-[10px] font-extrabold px-1.5 rounded-full">1st</span>
+          <span class="text-[11px] text-slate-300" id="pts-won-0">• 0 pts</span>
+        </div>
+
+        <!-- Combo Helper Pill -->
+        <div id="combo-helper" class="text-xs font-semibold px-3 py-1 rounded-xl bg-black/40 border border-white/10 text-slate-300">
+          Select cards to play
+        </div>
+
+        <!-- Action Buttons -->
+        <div id="human-controls" class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <button id="btn-call-tichu" onclick="Game.humanSmallTichu()" class="hidden px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow transition">
+            Call Tichu (+100)
+          </button>
+          <button id="btn-play" onclick="Game.humanPlaySelected()" disabled class="px-4 py-1.5 rounded-xl bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-400 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm shadow transition">
+            Play Cards
+          </button>
+          <button id="btn-pass" onclick="Game.humanPass()" disabled class="px-3.5 py-1.5 rounded-xl bg-rose-600/80 disabled:bg-slate-800 disabled:text-slate-500 hover:bg-rose-500 text-white font-semibold text-xs sm:text-sm transition">
+            Pass
+          </button>
+          <button id="btn-bomb" onclick="Game.humanPlayBombOutOfTurn()" class="hidden px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs sm:text-sm shadow-lg animate-bounce">
+            💣 Drop Bomb!
+          </button>
+          <button onclick="Game.toggleSortMode()" class="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-medium border border-white/10 transition" title="Toggle Sort Order">
+            Sort
+          </button>
+        </div>
+      </div>
+
+      <!-- HUMAN HAND FAN -->
+      <div id="human-hand" class="w-full flex flex-wrap sm:flex-nowrap items-end justify-center gap-1 sm:-space-x-2 min-h-[122px] px-2 pt-4 pb-1 overflow-x-auto">
+      </div>
+    </div>
+  </main>
+
+  <!-- MAH JONG WISH MODAL -->
+  <div id="wish-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-amber-400/50 rounded-2xl p-5 max-w-sm w-full text-center shadow-2xl">
+      <div class="text-3xl mb-1">🀄</div>
+      <h3 class="font-display font-bold text-amber-300 text-lg mb-1">Mah Jong Wish</h3>
+      <p class="text-xs text-slate-300 mb-4">Choose a rank (2–A) to wish for, or make no wish. Players must fulfill the wish if legally possible.</p>
+      <div id="wish-rank-buttons" class="grid grid-cols-5 gap-1.5 mb-4"></div>
+      <button onclick="Game.resolveHumanWish(null)" class="w-full py-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-semibold">
+        No Wish
+      </button>
+    </div>
+  </div>
+
+  <!-- DRAGON GIFT MODAL -->
+  <div id="dragon-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-amber-400/50 rounded-2xl p-5 max-w-sm w-full text-center shadow-2xl">
+      <div class="text-3xl mb-1">🐉</div>
+      <h3 class="font-display font-bold text-amber-300 text-lg mb-1">Dragon Won the Trick!</h3>
+      <p class="text-xs text-slate-300 mb-4">The Dragon requires you to donate all cards and points in this trick to one of your opponents.</p>
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="Game.resolveHumanDragonGift(1)" class="py-3 px-4 rounded-xl bg-rose-700 hover:bg-rose-600 text-white font-bold text-sm shadow">
+          Give to West
+        </button>
+        <button onclick="Game.resolveHumanDragonGift(3)" class="py-3 px-4 rounded-xl bg-rose-700 hover:bg-rose-600 text-white font-bold text-sm shadow">
+          Give to East
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROUND SUMMARY MODAL -->
+  <div id="round-summary-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-amber-400/50 rounded-2xl p-5 sm:p-6 max-w-md w-full text-center shadow-2xl">
+      <h2 id="round-summary-title" class="font-display font-bold text-amber-300 text-xl mb-1">Round Complete</h2>
+      <p id="round-summary-subtitle" class="text-xs text-slate-300 mb-4"></p>
+      <div id="round-summary-details" class="bg-black/40 rounded-xl p-3 text-left text-xs space-y-2 mb-4 border border-white/10"></div>
+      <button id="next-round-btn" onclick="Game.startNextRound()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-bold text-sm shadow-lg">
+        Deal Next Round
+      </button>
+    </div>
+  </div>
+
+  <!-- RULES & COMBOS MODAL -->
+  <div id="rules-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-amber-400/40 rounded-2xl p-5 max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+        <h2 class="font-display font-bold text-amber-300 text-lg">Tichu Rules & Quick Reference</h2>
+        <button onclick="UI.toggleModal('rules-modal', false)" class="text-slate-400 hover:text-white text-lg font-bold px-2">✕</button>
+      </div>
+      <div class="space-y-3 text-xs text-slate-200 leading-relaxed">
+        <div>
+          <h3 class="font-bold text-amber-200 uppercase tracking-wider mb-1">1. Goal & Scoring</h3>
+          <p>Partnerships (<b>You + North</b> vs. <b>West + East</b>) race to reach the target score (default 1000). Each deck contains 100 card points: <b>5s = 5 pts</b>, <b>10s & Kings = 10 pts</b>, <b>Dragon = +25 pts</b>, <b>Phoenix = -25 pts</b>.</p>
+          <p class="mt-1"><b>Double Victory:</b> If both partners go out 1st and 2nd, the round ends immediately and their team scores <b>+200 pts</b> (card points are ignored). Otherwise, the 4th player's remaining hand goes to the opposite team, and their won tricks go to the 1st-place player.</p>
+        </div>
+        <div>
+          <h3 class="font-bold text-amber-200 uppercase tracking-wider mb-1">2. Tichu Calls</h3>
+          <ul class="list-disc pl-4 space-y-1">
+            <li><b>Grand Tichu (±200 pts):</b> Called after seeing your first 8 cards, claiming you will go out 1st.</li>
+            <li><b>Small Tichu (±100 pts):</b> Called anytime before you play your very first card, claiming you will go out 1st.</li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-bold text-amber-200 uppercase tracking-wider mb-1">3. The 4 Special Cards</h3>
+          <ul class="list-disc pl-4 space-y-1">
+            <li><b>🀄 Mah Jong (1):</b> Lowest card; holder leads the first trick. When played, you may wish for a rank (2–A). Subsequent players must play that rank if they legally can.</li>
+            <li><b>🐕 Dog:</b> Can only be led on an empty table. Immediately passes the lead to your partner.</li>
+            <li><b>🦅 Phoenix (-25 pts):</b> Beats any single card (except Dragon) by +0.5 rank (1.5 if led), or acts as a wildcard in Pairs, Steps, Trips, Full Houses, and Straights (never Bombs).</li>
+            <li><b>🐉 Dragon (+25 pts):</b> Highest single card (beats Ace and Phoenix). Cannot be used in combos. If it wins a trick, you must give that trick to an opponent.</li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-bold text-amber-200 uppercase tracking-wider mb-1">4. Valid Combinations & Bombs</h3>
+          <p>You must match the lead combination type and count with a strictly higher rank: <b>Single</b>, <b>Pair</b>, <b>Consecutive Pairs (Steps: e.g. 44-55-66)</b>, <b>Three of a Kind</b>, <b>Full House (3+2)</b>, or <b>Straight (5+ cards)</b>.</p>
+          <p class="mt-1 text-purple-300"><b>💣 Bombs:</b> Any <b>Four-of-a-Kind</b> or <b>Straight Flush (5+ suited cards)</b> beats any non-bomb and can even be played out of turn!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW GAME / SETTINGS MODAL -->
+  <div id="settings-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-amber-400/40 rounded-2xl p-5 max-w-sm w-full text-center shadow-2xl">
+      <h2 class="font-display font-bold text-amber-300 text-lg mb-2">Start New Match</h2>
+      <p class="text-xs text-slate-300 mb-4">Choose target winning score:</p>
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <button onclick="Game.startNewMatch(300)" class="py-2.5 rounded-xl bg-white/10 hover:bg-amber-500 hover:text-slate-950 font-bold text-xs transition">300 pts<br><span class="text-[10px] font-normal opacity-80">Sprint</span></button>
+        <button onclick="Game.startNewMatch(500)" class="py-2.5 rounded-xl bg-white/10 hover:bg-amber-500 hover:text-slate-950 font-bold text-xs transition">500 pts<br><span class="text-[10px] font-normal opacity-80">Quick</span></button>
+        <button onclick="Game.startNewMatch(1000)" class="py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs shadow transition">1000 pts<br><span class="text-[10px] font-normal">Classic</span></button>
+      </div>
+      <button onclick="UI.toggleModal('settings-modal', false)" class="text-xs text-slate-400 hover:text-white">Cancel</button>
+    </div>
+  </div>
+
+<script>
+/**
+ * ============================================================================
+ * TICHU ENGINE & AI ARCHITECTURE
+ * ============================================================================
+ * Seats:
+ *  0 = South (Human)  | Team 0 (Us)
+ *  1 = West  (Bot)    | Team 1 (Them)
+ *  2 = North (Bot)    | Team 0 (Us)
+ *  3 = East  (Bot)    | Team 1 (Them)
+ * Turn order: 0 -> 1 -> 2 -> 3 (counter-clockwise / right-hand neighbor)
+ */
+
+const SUITS = [
+  { id: 'jade',   name: 'Jade',   symbol: '♣', css: 'suit-jade' },
+  { id: 'sword',  name: 'Sword',  symbol: '♠', css: 'suit-sword' },
+  { id: 'pagoda', name: 'Pagoda', symbol: '♦', css: 'suit-pagoda' },
+  { id: 'star',   name: 'Star',   symbol: '♥', css: 'suit-star' }
+];
+
+const RANK_LABELS = {
+  1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7',
+  8: '8', 9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K', 14: 'A'
+};
+
+// Build full 56-card Tichu deck
+function createDeck() {
+  const deck = [];
+  let uid = 1;
+
+  for (const suit of SUITS) {
+    for (let rank = 2; rank <= 14; rank++) {
+      let points = 0;
+      if (rank === 5) points = 5;
+      if (rank === 10 || rank === 13) points = 10;
+      deck.push({
+        id: `c_${uid++}`,
+        type: 'normal',
+        suit: suit.id,
+        rank,
+        label: RANK_LABELS[rank],
+        points
+      });
+    }
+  }
+
+  // 4 Special Cards
+  deck.push({ id: `c_${uid++}`, type: 'mahjong', suit: 'special', rank: 1,  label: '1',   name: 'Mah Jong', points: 0 });
+  deck.push({ id: `c_${uid++}`, type: 'dog',     suit: 'special', rank: 0,  label: 'DOG', name: 'Dog',      points: 0 });
+  deck.push({ id: `c_${uid++}`, type: 'phoenix', suit: 'special', rank: -1, label: 'PHX', name: 'Phoenix',  points: -25 });
+  deck.push({ id: `c_${uid++}`, type: 'dragon',  suit: 'special', rank: 15, label: 'DRG', name: 'Dragon',   points: 25 });
+
+  return deck;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * ============================================================================
+ * COMBINATION EVALUATOR & RULES VALIDATOR
+ * ============================================================================
+ */
+const Combo = {
+  /**
+   * Analyzes an array of cards and returns a structured combo object or null if invalid.
+   * Returned object: { type, rank, length, isBomb, label }
+   * Types: 'DOG', 'SINGLE', 'PAIR', 'STEPS', 'TRIPS', 'FULLHOUSE', 'STRAIGHT', 'BOMB_4', 'BOMB_SF'
+   */
+  evaluate(cards, currentTrick = null) {
+    if (!cards || cards.length === 0) return null;
+    const n = cards.length;
+
+    const hasDog = cards.some(c => c.type === 'dog');
+    const hasDragon = cards.some(c => c.type === 'dragon');
+    const hasMahjong = cards.some(c => c.type === 'mahjong');
+    const hasPhoenix = cards.some(c => c.type === 'phoenix');
+
+    // Dog can only be played alone
+    if (hasDog) {
+      if (n === 1) return { type: 'DOG', rank: 0, length: 1, isBomb: false, label: 'Dog (Pass Lead)' };
+      return null;
+    }
+
+    // Dragon can only be played as a single
+    if (hasDragon) {
+      if (n === 1) return { type: 'SINGLE', rank: 15, length: 1, isBomb: false, label: 'Dragon (15)' };
+      return null;
+    }
+
+    // Single card
+    if (n === 1) {
+      const c = cards[0];
+      if (c.type === 'phoenix') {
+        let phxRank = 1.5;
+        if (currentTrick && currentTrick.combo && currentTrick.combo.type === 'SINGLE') {
+          phxRank = currentTrick.combo.rank + 0.5;
+        }
+        return { type: 'SINGLE', rank: phxRank, length: 1, isBomb: false, label: `Phoenix (${phxRank})` };
+      }
+      if (c.type === 'mahjong') {
+        return { type: 'SINGLE', rank: 1, length: 1, isBomb: false, label: 'Mah Jong (1)' };
+      }
+      return { type: 'SINGLE', rank: c.rank, length: 1, isBomb: false, label: `Single ${c.label}` };
+    }
+
+    // From here on, n >= 2. Dragon & Dog are excluded.
+    // Mah Jong (rank 1) can only participate in Straights (starting at 1).
+    const nonPhoenix = cards.filter(c => c.type !== 'phoenix');
+    const phoenixCount = hasPhoenix ? 1 : 0;
+
+    // 1. Check Bombs first (Bombs NEVER contain Phoenix or Mah Jong)
+    if (!hasPhoenix && !hasMahjong) {
+      // Four of a Kind Bomb
+      if (n === 4 && nonPhoenix.every(c => c.rank === nonPhoenix[0].rank)) {
+        const r = nonPhoenix[0].rank;
+        return { type: 'BOMB_4', rank: r, length: 4, isBomb: true, label: `💣 Four ${RANK_LABELS[r]}s` };
+      }
+      // Straight Flush Bomb (5+ consecutive same suit)
+      if (n >= 5) {
+        const sameSuit = nonPhoenix.every(c => c.suit === nonPhoenix[0].suit);
+        if (sameSuit) {
+          const sorted = [...nonPhoenix].sort((a, b) => a.rank - b.rank);
+          let consec = true;
+          for (let i = 1; i < sorted.length; i++) {
+            if (sorted[i].rank !== sorted[i - 1].rank + 1) {
+              consec = false;
+              break;
+            }
+          }
+          if (consec) {
+            const topRank = sorted[sorted.length - 1].rank;
+            return { type: 'BOMB_SF', rank: topRank, length: n, isBomb: true, label: `💣 ${n}-Card Straight Flush (${RANK_LABELS[topRank]})` };
+          }
+        }
+      }
+    }
+
+    // Helper: count ranks among non-phoenix cards
+    const counts = {};
+    for (const c of nonPhoenix) {
+      counts[c.rank] = (counts[c.rank] || 0) + 1;
+    }
+    const distinctRanks = Object.keys(counts).map(Number).sort((a, b) => a - b);
+
+    // 2. Pair (n === 2, no Mah Jong)
+    if (n === 2 && !hasMahjong) {
+      if (distinctRanks.length === 1) {
+        const r = distinctRanks[0];
+        return { type: 'PAIR', rank: r, length: 2, isBomb: false, label: `Pair of ${RANK_LABELS[r]}s` };
+      }
+      return null;
+    }
+
+    // 3. Three of a Kind (n === 3, no Mah Jong)
+    if (n === 3 && !hasMahjong) {
+      if (distinctRanks.length === 1) {
+        const r = distinctRanks[0];
+        return { type: 'TRIPS', rank: r, length: 3, isBomb: false, label: `Three ${RANK_LABELS[r]}s` };
+      }
+      return null;
+    }
+
+    // 4. Consecutive Pairs / Steps (n >= 4 and even, no Mah Jong)
+    if (n >= 4 && n % 2 === 0 && !hasMahjong) {
+      const numPairs = n / 2;
+      // Can we form `numPairs` consecutive pairs using at most `phoenixCount` wildcards?
+      const minR = distinctRanks[0];
+      const maxR = distinctRanks[distinctRanks.length - 1];
+      if (maxR - minR + 1 <= numPairs && minR + numPairs - 1 <= 14) {
+        // Test candidate starting rank (either minR or minR-1 if phoenix completes bottom pair)
+        const startCandidates = [minR];
+        if (phoenixCount === 1 && minR > 2) startCandidates.push(minR - 1);
+
+        for (const startR of startCandidates) {
+          if (startR + numPairs - 1 > 14) continue;
+          let missing = 0;
+          let extra = false;
+          for (const r of distinctRanks) {
+            if (r < startR || r >= startR + numPairs) extra = true;
+          }
+          if (extra) continue;
+          for (let r = startR; r < startR + numPairs; r++) {
+            const c = counts[r] || 0;
+            if (c > 2) { extra = true; break; }
+            missing += (2 - c);
+          }
+          if (!extra && missing === phoenixCount) {
+            const topR = startR + numPairs - 1;
+            return { type: 'STEPS', rank: topR, length: n, isBomb: false, label: `${numPairs} Consecutive Pairs (${RANK_LABELS[startR]}–${RANK_LABELS[topR]})` };
+          }
+        }
+      }
+    }
+
+    // 5. Full House (n === 5, no Mah Jong)
+    if (n === 5 && !hasMahjong && distinctRanks.length === 2) {
+      const [r1, r2] = distinctRanks;
+      const c1 = counts[r1];
+      const c2 = counts[r2];
+      if (!hasPhoenix) {
+        if (c1 === 3 && c2 === 2) return { type: 'FULLHOUSE', rank: r1, length: 5, isBomb: false, label: `Full House (${RANK_LABELS[r1]}s full)` };
+        if (c2 === 3 && c1 === 2) return { type: 'FULLHOUSE', rank: r2, length: 5, isBomb: false, label: `Full House (${RANK_LABELS[r2]}s full)` };
+      } else {
+        // 4 non-phoenix cards: either (3 + 1) or (2 + 2)
+        if (c1 === 3 && c2 === 1) return { type: 'FULLHOUSE', rank: r1, length: 5, isBomb: false, label: `Full House (${RANK_LABELS[r1]}s full)` };
+        if (c2 === 3 && c1 === 1) return { type: 'FULLHOUSE', rank: r2, length: 5, isBomb: false, label: `Full House (${RANK_LABELS[r2]}s full)` };
+        if (c1 === 2 && c2 === 2) {
+          // Phoenix always upgrades the higher pair to maximize rank!
+          const highR = Math.max(r1, r2);
+          return { type: 'FULLHOUSE', rank: highR, length: 5, isBomb: false, label: `Full House (${RANK_LABELS[highR]}s full)` };
+        }
+      }
+    }
+
+    // 6. Straight (n >= 5, may include Mah Jong as 1 and Phoenix as any gap/extension)
+    if (n >= 5) {
+      // Every non-phoenix card must have count === 1
+      if (distinctRanks.length === nonPhoenix.length) {
+        const minR = distinctRanks[0];
+        const maxR = distinctRanks[distinctRanks.length - 1];
+        const span = maxR - minR + 1;
+        if (span === n && !hasPhoenix) {
+          return { type: 'STRAIGHT', rank: maxR, length: n, isBomb: false, label: `${n}-Card Straight (${RANK_LABELS[minR]}–${RANK_LABELS[maxR]})` };
+        }
+        if (hasPhoenix && (span === n || span === n - 1)) {
+          // If span === n, phoenix fills the 1 internal gap; top rank is maxR.
+          // If span === n - 1, phoenix extends top (if maxR < 14) or bottom (if minR > 1).
+          let topR = maxR;
+          let bottomR = minR;
+          if (span === n - 1) {
+            if (maxR < 14) topR = maxR + 1;
+            else bottomR = minR - 1;
+          }
+          if (bottomR >= 1 && topR <= 14) {
+            return { type: 'STRAIGHT', rank: topR, length: n, isBomb: false, label: `${n}-Card Straight (${RANK_LABELS[bottomR]}–${RANK_LABELS[topR]})` };
+          }
+        }
+      }
+    }
+
+    return null;
+  },
+
+  /**
+   * Checks if `candidateCombo` can legally beat `currentTrick.combo`.
+   */
+  canBeat(candidateCombo, currentTrick) {
+    if (!candidateCombo) return false;
+    // Empty table: anything valid can be led
+    if (!currentTrick || !currentTrick.combo) return true;
+
+    const lead = currentTrick.combo;
+
+    // Dog cannot be played onto an existing trick
+    if (candidateCombo.type === 'DOG') return false;
+
+    // Bomb logic
+    if (candidateCombo.isBomb) {
+      if (!lead.isBomb) return true;
+      // Bomb vs Bomb:
+      // Straight Flush beats Four-of-a-Kind; longer SF beats shorter SF; same type compares rank
+      if (candidateCombo.type === 'BOMB_SF' && lead.type === 'BOMB_4') return true;
+      if (candidateCombo.type === 'BOMB_4' && lead.type === 'BOMB_SF') return false;
+      if (candidateCombo.type === 'BOMB_SF' && lead.type === 'BOMB_SF') {
+        if (candidateCombo.length !== lead.length) return candidateCombo.length > lead.length;
+        return candidateCombo.rank > lead.rank;
+      }
+      return candidateCombo.rank > lead.rank;
+    }
+
+    // Non-bomb cannot beat a bomb
+    if (lead.isBomb) return false;
+
+    // Standard match: same type, same length, strictly higher rank
+    if (candidateCombo.type === lead.type && candidateCombo.length === lead.length) {
+      return candidateCombo.rank > lead.rank;
+    }
+
+    return false;
+  },
+
+  /**
+   * Generates all legal plays from `hand` that beat `currentTrick`.
+   * Also enforces Mah Jong `wishRank` if present and fulfillable!
+   */
+  getAllLegalPlays(hand, currentTrick, wishRank = null) {
+    const allCombos = this.generateAllValidCombos(hand, currentTrick);
+    const beatingPlays = allCombos.filter(p => this.canBeat(p.combo, currentTrick));
+
+    if (wishRank !== null) {
+      const wishFulfilling = beatingPlays.filter(p => p.cards.some(c => c.rank === wishRank));
+      if (wishFulfilling.length > 0) {
+        return wishFulfilling;
+      }
+    }
+    return beatingPlays;
+  },
+
+  /**
+   * Checks if a player MUST play (cannot pass) due to an active Mah Jong wish.
+   */
+  mustFulfillWish(hand, currentTrick, wishRank) {
+    if (wishRank === null) return false;
+    if (!hand.some(c => c.rank === wishRank)) return false;
+    const allCombos = this.generateAllValidCombos(hand, currentTrick);
+    return allCombos.some(p => p.canBeat && p.cards.some(c => c.rank === wishRank));
+  },
+
+  /**
+   * Enumerates valid combos from a hand (used by AI & Wish enforcement).
+   */
+  generateAllValidCombos(hand, currentTrick = null) {
+    const results = [];
+    const normals = hand.filter(c => c.type === 'normal');
+    const phoenix = hand.find(c => c.type === 'phoenix');
+    const dragon = hand.find(c => c.type === 'dragon');
+    const mahjong = hand.find(c => c.type === 'mahjong');
+    const dog = hand.find(c => c.type === 'dog');
+
+    // Group normals by rank
+    const byRank = {};
+    for (const c of normals) {
+      if (!byRank[c.rank]) byRank[c.rank] = [];
+      byRank[c.rank].push(c);
+    }
+    const ranks = Object.keys(byRank).map(Number).sort((a, b) => a - b);
+
+    // 1. Singles
+    for (const c of hand) {
+      const combo = this.evaluate([c], currentTrick);
+      if (combo) results.push({ cards: [c], combo, canBeat: this.canBeat(combo, currentTrick) });
+    }
+
+    // 2. Pairs
+    for (const r of ranks) {
+      if (byRank[r].length >= 2) {
+        const cards = byRank[r].slice(0, 2);
+        const combo = this.evaluate(cards, currentTrick);
+        results.push({ cards, combo, canBeat: this.canBeat(combo, currentTrick) });
+      }
+      if (phoenix && byRank[r].length >= 1) {
+        const cards = [byRank[r][0], phoenix];
+        const combo = this.evaluate(cards, currentTrick);
+        results.push({ cards, combo, canBeat: this.canBeat(combo, currentTrick) });
+      }
+    }
+
+    // 3. Trips
+    for (const r of ranks) {
+      if (byRank[r].length >= 3) {
+        const cards = byRank[r].slice(0, 3);
+        const combo = this.evaluate(cards, currentTrick);
+        results.push({ cards, combo, canBeat: this.canBeat(combo, currentTrick) });
+      }
+      if (phoenix && byRank[r].length >= 2) {
+        const cards = [...byRank[r].slice(0, 2), phoenix];
+        const combo = this.evaluate(cards, currentTrick);
+        results.push({ cards, combo, canBeat: this.canBeat(combo, currentTrick) });
+      }
+    }
+
+    // 4. Four-of-a-Kind Bombs
+    for (const r of ranks) {
+      if (byRank[r].length === 4) {
+        const cards = [...byRank[r]];
+        const combo = this.evaluate(cards, currentTrick);
+        results.push({ cards, combo, canBeat: this.canBeat(combo, currentTrick) });
+      }
+    }
+
+    // 5. Full Houses (3 + 2)
+    const tripsList = results.filter(x => x.combo.type === 'TRIPS');
+    const pairsList = results.filter(x => x.combo.type === 'PAIR');
+    for (const t of tripsList) {
+      for (const p of pairsList) {
+        if (t.combo.rank === p.combo.rank) continue;
+        // Ensure Phoenix isn't used in both
+        const combined = [...t.cards, ...p.cards];
+        const uniqueIds = new Set(combined.map(c => c.id));
+        if (uniqueIds.size === 5) {
+          const combo = this.evaluate(combined, currentTrick);
+          if (combo && combo.type === 'FULLHOUSE') {
+            results.push({ cards: combined, combo, canBeat: this.canBeat(combo, currentTrick) });
+          }
+        }
+      }
+    }
+
+    // 6. Consecutive Pairs (Steps)
+    for (let startR = 2; startR <= 13; startR++) {
+      let cards = [];
+      let phxUsed = false;
+      for (let r = startR; r <= 14; r++) {
+        const avail = byRank[r] || [];
+        if (avail.length >= 2) {
+          cards.push(avail[0], avail[1]);
+        } else if (avail.length === 1 && phoenix && !phxUsed) {
+          cards.push(avail[0], phoenix);
+          phxUsed = true;
+        } else {
+          break;
+        }
+        if (cards.length >= 4) {
+          const snapshot = [...cards];
+          const combo = this.evaluate(snapshot, currentTrick);
+          if (combo && combo.type === 'STEPS') {
+            results.push({ cards: snapshot, combo, canBeat: this.canBeat(combo, currentTrick) });
+          }
+        }
+      }
+    }
+
+    // 7. Straights (5+ cards, optionally with Mah Jong & Phoenix)
+    const straightPool = {};
+    if (mahjong) straightPool[1] = [mahjong];
+    for (const r of ranks) straightPool[r] = byRank[r];
+
+    for (let startR = 1; startR <= 10; startR++) {
+      let cards = [];
+      let phxUsed = false;
+      for (let r = startR; r <= 14; r++) {
+        if (straightPool[r] && straightPool[r].length > 0) {
+          cards.push(straightPool[r][0]);
+        } else if (phoenix && !phxUsed) {
+          cards.push(phoenix);
+          phxUsed = true;
+        } else {
+          break;
+        }
+        if (cards.length >= 5) {
+          const snapshot = [...cards];
+          const combo = this.evaluate(snapshot, currentTrick);
+          if (combo && (combo.type === 'STRAIGHT' || combo.type === 'BOMB_SF')) {
+            results.push({ cards: snapshot, combo, canBeat: this.canBeat(combo, currentTrick) });
+          }
+        }
+      }
+    }
+
+    // 8. Straight Flush Bombs explicitly per suit
+    for (const s of SUITS) {
+      const suited = normals.filter(c => c.suit === s.id).sort((a, b) => a.rank - b.rank);
+      for (let i = 0; i < suited.length; i++) {
+        const run = [suited[i]];
+        for (let j = i + 1; j < suited.length; j++) {
+          if (suited[j].rank === run[run.length - 1].rank + 1) {
+            run.push(suited[j]);
+            if (run.length >= 5) {
+              const snap = [...run];
+              const combo = this.evaluate(snap, currentTrick);
+              if (combo && combo.type === 'BOMB_SF') {
+                results.push({ cards: snap, combo, canBeat: this.canBeat(combo, currentTrick) });
+              }
+            }
+          } else {
+            break;
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+};
+
+/**
+ * ============================================================================
+ * AI BOT DECISION ENGINE
+ * ============================================================================
+ */
+const BotAI = {
+  decideGrandTichu(hand8) {
+    let score = 0;
+    for (const c of hand8) {
+      if (c.type === 'dragon') score += 3.5;
+      else if (c.type === 'phoenix') score += 3.0;
+      else if (c.rank === 14) score += 1.8;
+      else if (c.rank === 13) score += 1.0;
+    }
+    return score >= 7.5;
+  },
+
+  decideSmallTichu(hand) {
+    if (hand.length !== 14) return false;
+    let score = 0;
+    const counts = {};
+    for (const c of hand) {
+      if (c.type === 'dragon') score += 3.5;
+      else if (c.type === 'phoenix') score += 3.0;
+      else if (c.rank === 14) score += 1.8;
+      else if (c.rank === 13) score += 0.9;
+      if (c.type === 'normal') counts[c.rank] = (counts[c.rank] || 0) + 1;
+    }
+    if (Object.values(counts).includes(4)) score += 3.5; // Has a bomb!
+    return score >= 7.5;
+  },
+
+  /**
+   * Selects 3 cards to pass during Schupfen:
+   * - Gives best non-essential high card (or Dog) to Partner
+   * - Gives low junk cards (avoiding 5s/10s/Ks if possible) to Left & Right opponents
+   */
+  chooseSchupfenCards(hand) {
+    const sorted = [...hand].sort((a, b) => this.cardKeepValue(a) - this.cardKeepValue(b));
+    // Give Dog to partner if we have it, otherwise give a strong card (K or A)
+    let partnerCard = sorted.find(c => c.type === 'dog') ||
+                      [...sorted].reverse().find(c => c.rank >= 12 && c.type === 'normal') ||
+                      sorted[sorted.length - 1];
+
+    const remaining = sorted.filter(c => c.id !== partnerCard.id);
+    // Pick two lowest value cards for opponents
+    const leftCard = remaining[0];
+    const rightCard = remaining[1];
+
+    return { left: leftCard, partner: partnerCard, right: rightCard };
+  },
+
+  cardKeepValue(c) {
+    if (c.type === 'dragon') return 100;
+    if (c.type === 'phoenix') return 95;
+    if (c.type === 'mahjong') return 50;
+    if (c.type === 'dog') return 15;
+    let v = c.rank * 4;
+    if (c.points > 0) v += 3;
+    return v;
+  },
+
+  /**
+   * Chooses a play or returns null (pass) during a trick.
+   */
+  choosePlay(seat, state) {
+    const player = state.players[seat];
+    const hand = player.hand;
+    const trick = state.currentTrick;
+    const legalPlays = Combo.getAllLegalPlays(hand, trick, state.wishRank);
+
+    if (legalPlays.length === 0) return null;
+
+    // Leading a fresh trick
+    if (!trick || !trick.combo) {
+      // If partner called Tichu and we have Dog, play Dog immediately!
+      const partnerSeat = (seat + 2) % 4;
+      const dogPlay = legalPlays.find(p => p.combo.type === 'DOG');
+      if (dogPlay && (state.players[partnerSeat].tichuCall || hand.length > 6)) {
+        return dogPlay;
+      }
+
+      // Prefer multi-card combos (Straights, Full Houses, Steps, Pairs) with low rank to shed cards
+      const nonBombs = legalPlays.filter(p => !p.combo.isBomb && p.combo.type !== 'DOG');
+      const pool = nonBombs.length > 0 ? nonBombs : legalPlays;
+
+      pool.sort((a, b) => {
+        // Favor shedding more cards first, then lower rank
+        const lenDiff = b.cards.length - a.cards.length;
+        if (lenDiff !== 0) return lenDiff;
+        return a.combo.rank - b.combo.rank;
+      });
+
+      return pool[0];
+    }
+
+    // Following an existing trick
+    const partnerSeat = (seat + 2) % 4;
+    const partnerIsWinning = trick.owner === partnerSeat;
+    const trickPoints = trick.cards.reduce((sum, c) => sum + c.points, 0);
+
+    // If wish is active and we MUST play, legalPlays only has wish-fulfilling plays -> pick lowest
+    if (Combo.mustFulfillWish(hand, trick, state.wishRank)) {
+      legalPlays.sort((a, b) => a.combo.rank - b.combo.rank);
+      return legalPlays[0];
+    }
+
+    // Don't waste high cards or bombs if partner is currently winning (unless we can go out right now!)
+    const winningOutPlay = legalPlays.find(p => p.cards.length === hand.length);
+    if (winningOutPlay) return winningOutPlay;
+
+    if (partnerIsWinning) {
+      // Only overtake partner with a very low single/pair if we have many cards, otherwise pass
+      return null;
+    }
+
+    // Opponent is winning: filter out bombs unless trick has >= 20 points or opponent has <= 3 cards
+    const oppCardsLeft = state.players[trick.owner].hand.length;
+    const nonBombs = legalPlays.filter(p => !p.combo.isBomb);
+
+    if (nonBombs.length > 0) {
+      // Avoid breaking bombs if possible
+      nonBombs.sort((a, b) => a.combo.rank - b.combo.rank);
+      const best = nonBombs[0];
+      // Don't spend Dragon on a 0-point single unless opponent is low on cards or we have <= 4 cards
+      if (best.combo.rank === 15 && trickPoints <= 0 && oppCardsLeft > 4 && hand.length > 4) {
+        return null;
+      }
+      return best;
+    }
+
+    // Only bombs left: drop bomb if high stakes!
+    const bombs = legalPlays.filter(p => p.combo.isBomb);
+    if (bombs.length > 0 && (trickPoints >= 20 || oppCardsLeft <= 2 || hand.length <= 5)) {
+      bombs.sort((a, b) => a.combo.rank - b.combo.rank);
+      return bombs[0];
+    }
+
+    return null;
+  },
+
+  chooseWish(hand) {
+    // Wish for a rank we do NOT have (preferably A, K, Q, or 10)
+    const ownedRanks = new Set(hand.map(c => c.rank));
+    const targets = [14, 13, 12, 10, 11, 9, 8];
+    for (const r of targets) {
+      if (!ownedRanks.has(r)) return r;
+    }
+    return 14;
+  },
+
+  chooseDragonRecipient(seat, state) {
+    // Give to opponent with more cards or who has NOT called Tichu
+    const opp1 = (seat + 1) % 4;
+    const opp2 = (seat + 3) % 4;
+    if (state.players[opp1].tichuCall && !state.players[opp2].tichuCall) return opp2;
+    if (state.players[opp2].tichuCall && !state.players[opp1].tichuCall) return opp1;
+    return state.players[opp1].hand.length >= state.players[opp2].hand.length ? opp1 : opp2;
+  }
+};
+
+/**
+ * ============================================================================
+ * MAIN GAME STATE & CONTROLLER
+ * ============================================================================
+ */
+const Game = {
+  state: {
+    targetScore: 1000,
+    round: 1,
+    scores: [0, 0], // [Us (South+North), Them (West+East)]
+    phase: 'IDLE',  // IDLE, GRAND_BID, SCHUPFEN, RECEIVED_VIEW, PLAYING, ROUND_OVER
+    sortMode: 'rank', // 'rank' | 'suit'
+    players: [],
+    selectedCardIds: new Set(),
+    schupfenSlots: { left: null, partner: null, right: null },
+    receivedCards: { left: null, partner: null, right: null },
+    receivedHighlightIds: new Set(),
+    currentTrick: null, // { cards: [], combo: null, owner: null, passes: 0 }
+    turn: 0,
+    wishRank: null,
+    outOrder: [],
+    pendingAction: null // 'WISH' | 'DRAGON'
+  },
+
+  botTimer: null,
+
+  init() {
+    this.buildWishButtons();
+    this.startNewMatch(1000);
+  },
+
+  buildWishButtons() {
+    const container = document.getElementById('wish-rank-buttons');
+    container.innerHTML = '';
+    for (let r = 2; r <= 14; r++) {
+      const btn = document.createElement('button');
+      btn.className = 'py-2 rounded-lg bg-slate-800 hover:bg-amber-500 hover:text-slate-950 font-bold text-xs border border-white/10 transition';
+      btn.textContent = RANK_LABELS[r];
+      btn.onclick = () => this.resolveHumanWish(r);
+      container.appendChild(btn);
+    }
+  },
+
+  startNewMatch(targetScore) {
+    clearTimeout(this.botTimer);
+    UI.toggleModal('settings-modal', false);
+    UI.toggleModal('round-summary-modal', false);
+    this.state.targetScore = targetScore;
+    this.state.round = 1;
+    this.state.scores = [0, 0];
+    UI.clearLog();
+    UI.log(`New match started! First team to ${targetScore} points wins.`);
+    this.startRound();
+  },
+
+  startNextRound() {
+    UI.toggleModal('round-summary-modal', false);
+    this.state.round++;
+    this.startRound();
+  },
+
+  startRound() {
+    clearTimeout(this.botTimer);
+    const deck = shuffle(createDeck());
+
+    this.state.players = [
+      { seat: 0, name: 'You (South)', team: 0, hand: [], fullDeckShare: [], wonCards: [], tichuCall: null, hasPlayedCard: false, outPlace: null },
+      { seat: 1, name: 'West',        team: 1, hand: [], fullDeckShare: [], wonCards: [], tichuCall: null, hasPlayedCard: false, outPlace: null },
+      { seat: 2, name: 'North',       team: 0, hand: [], fullDeckShare: [], wonCards: [], tichuCall: null, hasPlayedCard: false, outPlace: null },
+      { seat: 3, name: 'East',        team: 1, hand: [], fullDeckShare: [], wonCards: [], tichuCall: null, hasPlayedCard: false, outPlace: null }
+    ];
+
+    // Deal 14 cards per player, show first 8 for Grand Tichu phase
+    for (let i = 0; i < 4; i++) {
+      const pCards = deck.slice(i * 14, (i + 1) * 14);
+      this.state.players[i].fullDeckShare = pCards;
+      this.state.players[i].hand = this.sortCards(pCards.slice(0, 8));
+    }
+
+    this.state.selectedCardIds.clear();
+    this.state.receivedHighlightIds.clear();
+    this.state.schupfenSlots = { left: null, partner: null, right: null };
+    this.state.currentTrick = null;
+    this.state.wishRank = null;
+    this.state.outOrder = [];
+    this.state.pendingAction = null;
+    this.state.phase = 'GRAND_BID';
+
+    UI.log(`--- Round ${this.state.round} --- Dealt first 8 cards.`);
+    UI.setBanner('Grand Tichu Bidding — Review your first 8 cards');
+    UI.renderAll();
+  },
+
+  humanGrandTichu(callGrand) {
+    if (this.state.phase !== 'GRAND_BID') return;
+    if (callGrand) {
+      this.state.players[0].tichuCall = 'GRAND';
+      UI.log('🔥 YOU called GRAND TICHU (±200)!', 'text-amber-300 font-bold');
+    } else {
+      UI.log('You passed on Grand Tichu.');
+    }
+
+    // Bots evaluate Grand Tichu on their first 8 cards
+    for (let s = 1; s <= 3; s++) {
+      if (BotAI.decideGrandTichu(this.state.players[s].hand)) {
+        this.state.players[s].tichuCall = 'GRAND';
+        UI.log(`🔥 ${this.state.players[s].name} called GRAND TICHU!`, 'text-amber-300 font-bold');
+      }
+    }
+
+    // Deal remaining 6 cards to everyone
+    for (let i = 0; i < 4; i++) {
+      this.state.players[i].hand = this.sortCards([...this.state.players[i].fullDeckShare]);
+    }
+
+    this.state.phase = 'SCHUPFEN';
+    UI.setBanner('Schupfen Phase — Pass 1 card to each player');
+    UI.renderAll();
+  },
+
+  // Human clicks a card in their hand
+  toggleCardSelection(cardId) {
+    if (this.state.phase !== 'SCHUPFEN' && this.state.phase !== 'PLAYING') return;
+
+    // During Schupfen, keep single selection so clicking a slot assigns it cleanly
+    if (this.state.phase === 'SCHUPFEN') {
+      if (this.state.selectedCardIds.has(cardId)) {
+        this.state.selectedCardIds.clear();
+      } else {
+        this.state.selectedCardIds.clear();
+        this.state.selectedCardIds.add(cardId);
+      }
+      UI.renderHumanHand();
+      return;
+    }
+
+    if (this.state.selectedCardIds.has(cardId)) {
+      this.state.selectedCardIds.delete(cardId);
+    } else {
+      this.state.selectedCardIds.add(cardId);
+    }
+    UI.renderHumanHand();
+    UI.updateComboHelperAndButtons();
+  },
+
+  assignSchupfenSlot(slotKey) {
+    if (this.state.phase !== 'SCHUPFEN') return;
+    const human = this.state.players[0];
+
+    // If a card is currently selected in hand, place it into this slot
+    if (this.state.selectedCardIds.size === 1) {
+      const cardId = [...this.state.selectedCardIds][0];
+      const card = human.hand.find(c => c.id === cardId);
+      if (!card) return;
+
+      // Remove from any other slot first
+      for (const k of ['left', 'partner', 'right']) {
+        if (this.state.schupfenSlots[k] && this.state.schupfenSlots[k].id === cardId) {
+          this.state.schupfenSlots[k] = null;
+        }
+      }
+      this.state.schupfenSlots[slotKey] = card;
+      this.state.selectedCardIds.clear();
+    } else if (this.state.schupfenSlots[slotKey]) {
+      // Clicking an occupied slot with nothing selected returns the card to hand
+      this.state.schupfenSlots[slotKey] = null;
+    }
+
+    UI.renderSchupfenSlots();
+    UI.renderHumanHand();
+  },
+
+  confirmSchupfen() {
+    const slots = this.state.schupfenSlots;
+    if (!slots.left || !slots.partner || !slots.right) return;
+
+    // Gather all 4 players' outgoing passes:
+    // Seat s passes: left -> (s+1)%4, partner -> (s+2)%4, right -> (s+3)%4
+    const passes = [
+      { left: slots.left, partner: slots.partner, right: slots.right },
+      BotAI.chooseSchupfenCards(this.state.players[1].hand),
+      BotAI.chooseSchupfenCards(this.state.players[2].hand),
+      BotAI.chooseSchupfenCards(this.state.players[3].hand)
+    ];
+
+    // Remove outgoing cards from each player's hand
+    for (let s = 0; s < 4; s++) {
+      const outIds = new Set([passes[s].left.id, passes[s].partner.id, passes[s].right.id]);
+      this.state.players[s].hand = this.state.players[s].hand.filter(c => !outIds.has(c.id));
+    }
+
+    // Deliver incoming cards
+    for (let s = 0; s < 4; s++) {
+      const fromLeft    = passes[(s + 3) % 4].right;   // My left neighbor passed to their right (me)
+      const fromPartner = passes[(s + 2) % 4].partner; // My partner passed to their partner (me)
+      const fromRight   = passes[(s + 1) % 4].left;    // My right neighbor passed to their left (me)
+
+      this.state.players[s].hand.push(fromLeft, fromPartner, fromRight);
+      this.state.players[s].hand = this.sortCards(this.state.players[s].hand);
+
+      if (s === 0) {
+        this.state.receivedCards = { left: fromLeft, partner: fromPartner, right: fromRight };
+        this.state.receivedHighlightIds = new Set([fromLeft.id, fromPartner.id, fromRight.id]);
+      }
+    }
+
+    UI.log('Schupfen complete! Exchanged 3 cards with table.');
+    this.state.phase = 'RECEIVED_VIEW';
+    UI.renderAll();
+  },
+
+  acknowledgeReceived() {
+    this.state.phase = 'PLAYING';
+
+    // Bots decide Small Tichu before play starts
+    for (let s = 1; s <= 3; s++) {
+      const p = this.state.players[s];
+      if (!p.tichuCall && BotAI.decideSmallTichu(p.hand)) {
+        p.tichuCall = 'SMALL';
+        UI.log(`⚡ ${p.name} called TICHU (±100)!`, 'text-amber-300 font-bold');
+      }
+    }
+
+    // Find holder of Mah Jong (rank 1) to lead the first trick
+    let starter = 0;
+    for (let s = 0; s < 4; s++) {
+      if (this.state.players[s].hand.some(c => c.type === 'mahjong')) {
+        starter = s;
+        break;
+      }
+    }
+
+    this.state.turn = starter;
+    this.state.currentTrick = null;
+    UI.log(`${this.state.players[starter].name} holds the Mah Jong (1) and leads!`);
+    UI.renderAll();
+    this.advanceTurnIfBot();
+  },
+
+  humanSmallTichu() {
+    const p = this.state.players[0];
+    if (p.tichuCall || p.hasPlayedCard || this.state.phase !== 'PLAYING') return;
+    p.tichuCall = 'SMALL';
+    UI.log('⚡ YOU called TICHU (±100)!', 'text-amber-300 font-bold');
+    UI.renderAll();
+  },
+
+  humanPlaySelected() {
+    if (this.state.phase !== 'PLAYING' || this.state.turn !== 0 || this.state.pendingAction) return;
+    const human = this.state.players[0];
+    const selectedCards = human.hand.filter(c => this.state.selectedCardIds.has(c.id));
+    const combo = Combo.evaluate(selectedCards, this.state.currentTrick);
+
+    if (!combo || !Combo.canBeat(combo, this.state.currentTrick)) return;
+
+    // Enforce Mah Jong Wish if active
+    if (Combo.mustFulfillWish(human.hand, this.state.currentTrick, this.state.wishRank)) {
+      if (!selectedCards.some(c => c.rank === this.state.wishRank)) {
+        UI.setBanner(`⚠️ You MUST fulfill the Mah Jong wish for ${RANK_LABELS[this.state.wishRank]}!`);
+        return;
+      }
+    }
+
+    this.state.selectedCardIds.clear();
+    this.state.receivedHighlightIds.clear();
+    this.executePlay(0, selectedCards, combo);
+  },
+
+  humanPlayBombOutOfTurn() {
+    if (this.state.phase !== 'PLAYING' || this.state.turn === 0 || this.state.pendingAction) return;
+    if (!this.state.currentTrick || !this.state.currentTrick.combo) return;
+
+    const human = this.state.players[0];
+    const selectedCards = human.hand.filter(c => this.state.selectedCardIds.has(c.id));
+    const combo = Combo.evaluate(selectedCards, this.state.currentTrick);
+
+    if (combo && combo.isBomb && Combo.canBeat(combo, this.state.currentTrick)) {
+      clearTimeout(this.botTimer);
+      this.state.selectedCardIds.clear();
+      UI.log('💣 YOU interrupted out of turn with a BOMB!', 'text-purple-300 font-bold');
+      this.executePlay(0, selectedCards, combo);
+    }
+  },
+
+  humanPass() {
+    if (this.state.phase !== 'PLAYING' || this.state.turn !== 0 || this.state.pendingAction) return;
+    if (!this.state.currentTrick || !this.state.currentTrick.combo) return;
+
+    const human = this.state.players[0];
+    if (Combo.mustFulfillWish(human.hand, this.state.currentTrick, this.state.wishRank)) {
+      UI.setBanner(`⚠️ Cannot pass — You must play a ${RANK_LABELS[this.state.wishRank]}!`);
+      return;
+    }
+
+    this.state.selectedCardIds.clear();
+    this.executePass(0);
+  },
+
+  /**
+   * Core play execution for both Human and Bots
+   */
+  executePlay(seat, cards, combo) {
+    const player = this.state.players[seat];
+    player.hasPlayedCard = true;
+
+    // Remove played cards from hand
+    const playedIds = new Set(cards.map(c => c.id));
+    player.hand = player.hand.filter(c => !playedIds.has(c.id));
+
+    // Check if Mah Jong wish was fulfilled by this play
+    if (this.state.wishRank !== null && cards.some(c => c.rank === this.state.wishRank)) {
+      UI.log(`✨ Wish for ${RANK_LABELS[this.state.wishRank]} fulfilled by ${player.name}!`, 'text-sky-300');
+      this.state.wishRank = null;
+    }
+
+    // Special: Dog immediately passes lead to partner (or next active player)
+    if (combo.type === 'DOG') {
+      UI.log(`🐕 ${player.name} played the Dog!`);
+      this.checkPlayerOut(seat);
+      if (this.checkRoundEnd()) return;
+
+      let target = (seat + 2) % 4;
+      while (this.state.players[target].hand.length === 0) {
+        target = (target + 1) % 4;
+      }
+      this.state.currentTrick = null;
+      this.state.turn = target;
+      UI.log(`Lead passes to ${this.state.players[target].name}.`);
+      UI.renderAll();
+      this.advanceTurnIfBot();
+      return;
+    }
+
+    // Add cards to current trick pile
+    if (!this.state.currentTrick) {
+      this.state.currentTrick = { cards: [], combo: null, owner: seat, passes: 0 };
+    }
+    this.state.currentTrick.cards.push(...cards);
+    this.state.currentTrick.latestCards = cards;
+    this.state.currentTrick.combo = combo;
+    this.state.currentTrick.owner = seat;
+    this.state.currentTrick.passes = 0;
+
+    UI.log(`${player.name} played ${combo.label}.`);
+
+    // Check if player just emptied their hand
+    this.checkPlayerOut(seat);
+    if (this.checkRoundEnd()) return;
+
+    // Special: Mah Jong triggers Wish selection
+    if (cards.some(c => c.type === 'mahjong')) {
+      if (seat === 0) {
+        this.state.pendingAction = 'WISH';
+        UI.renderAll();
+        UI.toggleModal('wish-modal', true);
+        return;
+      } else {
+        const wished = BotAI.chooseWish(player.hand);
+        this.state.wishRank = wished;
+        UI.log(`🀄 ${player.name} wishes for rank ${RANK_LABELS[wished]}!`, 'text-amber-300 font-semibold');
+      }
+    }
+
+    // Move turn to next active player
+    this.advanceToNextActivePlayer(seat);
+  },
+
+  resolveHumanWish(rank) {
+    UI.toggleModal('wish-modal', false);
+    this.state.pendingAction = null;
+    if (rank !== null) {
+      this.state.wishRank = rank;
+      UI.log(`🀄 You wished for rank ${RANK_LABELS[rank]}!`, 'text-amber-300 font-semibold');
+    } else {
+      UI.log('You made no wish.');
+    }
+    this.advanceToNextActivePlayer(0);
+  },
+
+  executePass(seat) {
+    const player = this.state.players[seat];
+    UI.log(`${player.name} passed.`);
+    this.state.currentTrick.passes++;
+
+    // Count how many players are still active (have cards) excluding the trick owner if out
+    const activePlayers = this.state.players.filter(p => p.hand.length > 0).length;
+    const ownerStillHasCards = this.state.players[this.state.currentTrick.owner].hand.length > 0;
+    const passesNeeded = ownerStillHasCards ? activePlayers - 1 : activePlayers;
+
+    if (this.state.currentTrick.passes >= passesNeeded) {
+      this.resolveTrickWin();
+    } else {
+      this.advanceToNextActivePlayer(seat);
+    }
+  },
+
+  resolveTrickWin() {
+    const trick = this.state.currentTrick;
+    const winnerSeat = trick.owner;
+    const winner = this.state.players[winnerSeat];
+
+    // Check if Dragon won the trick
+    const wonWithDragon = trick.combo && trick.combo.type === 'SINGLE' && trick.combo.rank === 15;
+    if (wonWithDragon) {
+      if (winnerSeat === 0) {
+        this.state.pendingAction = 'DRAGON';
+        UI.renderAll();
+        UI.toggleModal('dragon-modal', true);
+        return;
+      } else {
+        const giftSeat = BotAI.chooseDragonRecipient(winnerSeat, this.state);
+        this.state.players[giftSeat].wonCards.push(...trick.cards);
+        UI.log(`🐉 ${winner.name} won with Dragon and gave the trick to ${this.state.players[giftSeat].name}!`, 'text-rose-300');
+      }
+    } else {
+      winner.wonCards.push(...trick.cards);
+      const pts = trick.cards.reduce((s, c) => s + c.points, 0);
+      UI.log(`✔ ${winner.name} won the trick (${pts >= 0 ? '+' : ''}${pts} pts).`, 'text-emerald-300');
+    }
+
+    this.finishTrickCleanup(winnerSeat);
+  },
+
+  resolveHumanDragonGift(recipientSeat) {
+    UI.toggleModal('dragon-modal', false);
+    this.state.pendingAction = null;
+    const trick = this.state.currentTrick;
+    this.state.players[recipientSeat].wonCards.push(...trick.cards);
+    UI.log(`🐉 You donated the Dragon trick to ${this.state.players[recipientSeat].name}.`, 'text-rose-300');
+    this.finishTrickCleanup(0);
+  },
+
+  finishTrickCleanup(winnerSeat) {
+    this.state.currentTrick = null;
+    if (this.checkRoundEnd()) return;
+
+    // Winner leads next trick; if winner already went out, pass lead to next active player
+    let nextLeader = winnerSeat;
+    while (this.state.players[nextLeader].hand.length === 0) {
+      nextLeader = (nextLeader + 1) % 4;
+    }
+    this.state.turn = nextLeader;
+    UI.renderAll();
+    this.advanceTurnIfBot();
+  },
+
+  advanceToNextActivePlayer(currentSeat) {
+    let next = (currentSeat + 1) % 4;
+    while (this.state.players[next].hand.length === 0) {
+      next = (next + 1) % 4;
+    }
+    this.state.turn = next;
+    UI.renderAll();
+    this.advanceTurnIfBot();
+  },
+
+  advanceTurnIfBot() {
+    if (this.state.phase !== 'PLAYING' || this.state.pendingAction) return;
+    if (this.state.turn === 0) return;
+
+    const botSeat = this.state.turn;
+    this.botTimer = setTimeout(() => {
+      if (this.state.phase !== 'PLAYING' || this.state.turn !== botSeat || this.state.pendingAction) return;
+      const choice = BotAI.choosePlay(botSeat, this.state);
+      if (choice) {
+        this.executePlay(botSeat, choice.cards, choice.combo);
+      } else {
+        this.executePass(botSeat);
+      }
+    }, 850);
+  },
+
+  checkPlayerOut(seat) {
+    const p = this.state.players[seat];
+    if (p.hand.length === 0 && p.outPlace === null) {
+      this.state.outOrder.push(seat);
+      p.outPlace = this.state.outOrder.length;
+      const ordinals = ['1st', '2nd', '3rd', '4th'];
+      UI.log(`🏆 ${p.name} went out ${ordinals[p.outPlace - 1]}!`, 'text-amber-300 font-bold');
+    }
+  },
+
+  /**
+   * Checks Double Victory (1st & 2nd same team) or 3 players out.
+   */
+  checkRoundEnd() {
+    const out = this.state.outOrder;
+    if (out.length >= 2) {
+      const firstTeam = this.state.players[out[0]].team;
+      const secondTeam = this.state.players[out[1]].team;
+      if (firstTeam === secondTeam) {
+        this.endRound(true, firstTeam);
+        return true;
+      }
+    }
+    if (out.length >= 3) {
+      this.endRound(false, null);
+      return true;
+    }
+    return false;
+  },
+
+  endRound(isDoubleVictory, dvTeam) {
+    clearTimeout(this.botTimer);
+    this.state.phase = 'ROUND_OVER';
+
+    // Collect any cards still in the active trick into the last trick owner's pile
+    if (this.state.currentTrick && this.state.currentTrick.cards.length > 0) {
+      const owner = this.state.currentTrick.owner;
+      this.state.players[owner].wonCards.push(...this.state.currentTrick.cards);
+      this.state.currentTrick = null;
+    }
+
+    let usCardPts = 0;
+    let themCardPts = 0;
+    const summaryLines = [];
+
+    if (isDoubleVictory) {
+      if (dvTeam === 0) {
+        usCardPts = 200;
+        summaryLines.push(`<div class="text-emerald-300 font-bold">✨ DOUBLE VICTORY for You & North! (+200 pts)</div>`);
+      } else {
+        themCardPts = 200;
+        summaryLines.push(`<div class="text-rose-300 font-bold">💀 DOUBLE VICTORY for West & East! (+200 pts)</div>`);
+      }
+    } else {
+      // Find the 4th place player
+      const fourthPlayer = this.state.players.find(p => p.outPlace === null);
+      const firstPlayer = this.state.players[this.state.outOrder[0]];
+
+      // 4th player's remaining hand goes to the opposite team
+      const handPts = fourthPlayer.hand.reduce((s, c) => s + c.points, 0);
+      if (fourthPlayer.team === 0) themCardPts += handPts;
+      else usCardPts += handPts;
+
+      // 4th player's won tricks go to the 1st place player
+      firstPlayer.wonCards.push(...fourthPlayer.wonCards);
+      fourthPlayer.wonCards = [];
+
+      // Sum card points per team
+      for (const p of this.state.players) {
+        const pts = p.wonCards.reduce((s, c) => s + c.points, 0);
+        if (p.team === 0) usCardPts += pts;
+        else themCardPts += pts;
+      }
+
+      summaryLines.push(`<div><b>Card Points:</b> You & North: <span class="text-emerald-300 font-bold">${usCardPts}</span> | West & East: <span class="text-rose-300 font-bold">${themCardPts}</span></div>`);
+    }
+
+    // Apply Tichu / Grand Tichu bonuses & penalties
+    let usBonus = 0;
+    let themBonus = 0;
+    const firstOutSeat = this.state.outOrder[0];
+
+    for (const p of this.state.players) {
+      if (!p.tichuCall) continue;
+      const val = p.tichuCall === 'GRAND' ? 200 : 100;
+      const succeeded = p.seat === firstOutSeat;
+      const delta = succeeded ? val : -val;
+      if (p.team === 0) usBonus += delta;
+      else themBonus += delta;
+
+      summaryLines.push(
+        `<div><b>${p.name} (${p.tichuCall} Tichu):</b> <span class="${succeeded ? 'text-emerald-300' : 'text-rose-400'} font-bold">${succeeded ? '+' : ''}${delta} pts</span></div>`
+      );
+    }
+
+    const usTotalDelta = usCardPts + usBonus;
+    const themTotalDelta = themCardPts + themBonus;
+
+    this.state.scores[0] += usTotalDelta;
+    this.state.scores[1] += themTotalDelta;
+
+    summaryLines.push(
+      `<div class="pt-2 border-t border-white/15 flex justify-between font-bold text-sm">
+        <span>Round Total:</span>
+        <span>You: ${usTotalDelta >= 0 ? '+' : ''}${usTotalDelta} | Opp: ${themTotalDelta >= 0 ? '+' : ''}${themTotalDelta}</span>
+      </div>`
+    );
+
+    UI.renderAll();
+
+    // Check match victory
+    const [usScore, themScore] = this.state.scores;
+    const target = this.state.targetScore;
+    const titleEl = document.getElementById('round-summary-title');
+    const subEl = document.getElementById('round-summary-subtitle');
+    const btnEl = document.getElementById('next-round-btn');
+
+    if ((usScore >= target || themScore >= target) && usScore !== themScore) {
+      const weWon = usScore > themScore;
+      titleEl.textContent = weWon ? '🏆 Match Victory!' : 'Match Defeat';
+      subEl.textContent = `Final Score — You & North: ${usScore} | West & East: ${themScore}`;
+      btnEl.textContent = 'Play New Match';
+      btnEl.onclick = () => this.startNewMatch(this.state.targetScore);
+    } else {
+      titleEl.textContent = `Round ${this.state.round} Summary`;
+      subEl.textContent = `Match Standings — You & North: ${usScore} / ${target} | West & East: ${themScore} / ${target}`;
+      btnEl.textContent = 'Deal Next Round';
+      btnEl.onclick = () => this.startNextRound();
+    }
+
+    document.getElementById('round-summary-details').innerHTML = summaryLines.join('');
+    UI.toggleModal('round-summary-modal', true);
+  },
+
+  toggleSortMode() {
+    this.state.sortMode = this.state.sortMode === 'rank' ? 'suit' : 'rank';
+    this.state.players[0].hand = this.sortCards(this.state.players[0].hand);
+    UI.renderHumanHand();
+  },
+
+  sortCards(cards) {
+    const suitOrder = { special: 0, jade: 1, sword: 2, pagoda: 3, star: 4 };
+    return [...cards].sort((a, b) => {
+      if (this.state.sortMode === 'suit') {
+        if (suitOrder[a.suit] !== suitOrder[b.suit]) return suitOrder[a.suit] - suitOrder[b.suit];
+        return b.rank - a.rank;
+      }
+      // Default: sort by rank descending, specials on left/right cleanly
+      const rankA = a.type === 'phoenix' ? 14.5 : a.rank;
+      const rankB = b.type === 'phoenix' ? 14.5 : b.rank;
+      if (rankB !== rankA) return rankB - rankA;
+      return suitOrder[a.suit] - suitOrder[b.suit];
+    });
+  }
+};
+
+/**
+ * ============================================================================
+ * UI RENDERER & DOM HELPERS
+ * ============================================================================
+ */
+const UI = {
+  toggleModal(id, show) {
+    const el = document.getElementById(id);
+    if (show) el.classList.remove('hidden');
+    else el.classList.add('hidden');
+  },
+
+  setBanner(text) {
+    document.getElementById('table-status-banner').textContent = text;
+  },
+
+  clearLog() {
+    document.getElementById('game-log').innerHTML = '';
+  },
+
+  log(msg, extraClass = '') {
+    const logEl = document.getElementById('game-log');
+    const line = document.createElement('div');
+    if (extraClass) line.className = extraClass;
+    line.textContent = msg;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  },
+
+  createCardElement(card, { mini = false, selected = false, highlighted = false, onClick = null } = {}) {
+    const div = document.createElement('div');
+    div.className = `playing-card flex flex-col justify-between p-1.5 sm:p-2 select-none ${mini ? 'mini p-1' : ''} ${selected ? 'selected' : ''} ${highlighted ? 'received-highlight' : ''}`;
+    if (onClick) div.onclick = onClick;
+
+    if (card.type === 'normal') {
+      const suitObj = SUITS.find(s => s.id === card.suit);
+      const ptBadge = card.points > 0 ? `<span class="text-[9px] font-bold px-1 rounded bg-amber-100 text-amber-800">+${card.points}</span>` : '';
+      div.innerHTML = `
+        <div class="flex items-start justify-between leading-none ${suitObj.css}">
+          <span class="font-extrabold ${mini ? 'text-xs' : 'text-sm sm:text-base'}">${card.label}</span>
+          ${!mini ? ptBadge : ''}
+        </div>
+        <div class="text-center ${suitObj.css} ${mini ? 'text-lg' : 'text-2xl sm:text-3xl'} leading-none">
+          ${suitObj.symbol}
+        </div>
+        <div class="flex items-end justify-end leading-none ${suitObj.css}">
+          <span class="font-bold text-[10px] sm:text-xs rotate-180">${card.label}</span>
+        </div>
+      `;
+    } else {
+      // Special Cards Styling
+      const specials = {
+        mahjong: { icon: '🀄', title: '1',   sub: 'Mah Jong', bg: 'from-emerald-50 to-teal-100',   color: 'text-emerald-800' },
+        dog:     { icon: '🐕', title: 'DOG', sub: 'Pass Lead',bg: 'from-amber-50 to-orange-100',   color: 'text-amber-900' },
+        phoenix: { icon: '🦅', title: 'PHX', sub: '-25 pts',  bg: 'from-purple-50 to-fuchsia-100', color: 'text-purple-800' },
+        dragon:  { icon: '🐉', title: 'DRG', sub: '+25 pts',  bg: 'from-rose-50 to-red-100',       color: 'text-red-800' }
+      };
+      const sp = specials[card.type];
+      div.classList.add('bg-gradient-to-br', ...sp.bg.split(' '));
+      div.innerHTML = `
+        <div class="flex items-center justify-between leading-none ${sp.color}">
+          <span class="font-extrabold ${mini ? 'text-[10px]' : 'text-xs'}">${sp.title}</span>
+        </div>
+        <div class="text-center ${mini ? 'text-xl' : 'text-2xl sm:text-3xl'} leading-none my-auto">
+          ${sp.icon}
+        </div>
+        <div class="text-center leading-none ${sp.color} font-bold ${mini ? 'text-[8px]' : 'text-[9px] sm:text-[10px]'}">
+          ${sp.sub}
+        </div>
+      `;
+    }
+
+    return div;
+  },
+
+  renderAll() {
+    const st = Game.state;
+
+    // Header Scores & Round
+    document.getElementById('round-indicator').textContent = `Round ${st.round} • Target: ${st.targetScore} pts`;
+    document.getElementById('score-us').textContent = st.scores[0];
+    document.getElementById('score-them').textContent = st.scores[1];
+
+    // Wish Indicator
+    const wishBadge = document.getElementById('wish-badge');
+    if (st.wishRank !== null) {
+      wishBadge.classList.remove('hidden');
+      wishBadge.classList.add('flex');
+      document.getElementById('wish-rank-display').textContent = RANK_LABELS[st.wishRank];
+    } else {
+      wishBadge.classList.add('hidden');
+      wishBadge.classList.remove('flex');
+    }
+
+    // Player Seats (Counts, Points Won, Tichu Badges, Turn Glow, Out Place)
+    const ordinals = ['1st', '2nd', '3rd', '4th'];
+    for (let s = 0; s < 4; s++) {
+      const p = st.players[s];
+      const seatEl = document.getElementById(`seat-${s}`);
+      if (st.phase === 'PLAYING' && st.turn === s) seatEl.classList.add('active-turn-ring');
+      else seatEl.classList.remove('active-turn-ring');
+
+      const callBadge = document.getElementById(`call-badge-${s}`);
+      if (p.tichuCall) {
+        callBadge.classList.remove('hidden');
+        callBadge.textContent = p.tichuCall === 'GRAND' ? 'GRAND TICHU' : 'TICHU';
+      } else {
+        callBadge.classList.add('hidden');
+      }
+
+      const outBadge = document.getElementById(`out-badge-${s}`);
+      if (p.outPlace) {
+        outBadge.classList.remove('hidden');
+        outBadge.textContent = ordinals[p.outPlace - 1];
+      } else {
+        outBadge.classList.add('hidden');
+      }
+
+      const wonPts = p.wonCards.reduce((sum, c) => sum + c.points, 0);
+      if (s === 0) {
+        document.getElementById('pts-won-0').textContent = `• ${wonPts} pts won`;
+      } else {
+        document.getElementById(`cards-count-${s}`).textContent = `${p.hand.length} cards`;
+        document.getElementById(`pts-won-${s}`).textContent = `${wonPts} pts`;
+      }
+    }
+
+    // North mini card backs
+    const northPreview = document.getElementById('hand-preview-2');
+    northPreview.innerHTML = '';
+    const count2 = st.players[2].hand.length;
+    for (let i = 0; i < Math.min(count2, 8); i++) {
+      const back = document.createElement('div');
+      back.className = 'w-5 h-7 rounded card-back card-back-pattern';
+      northPreview.appendChild(back);
+    }
+
+    // Phase Panels Visibility
+    document.getElementById('grand-tichu-panel').classList.toggle('hidden', st.phase !== 'GRAND_BID');
+    document.getElementById('schupfen-panel').classList.toggle('hidden', st.phase !== 'SCHUPFEN');
+    document.getElementById('received-panel').classList.toggle('hidden', st.phase !== 'RECEIVED_VIEW');
+    document.getElementById('trick-arena').classList.toggle('hidden', st.phase !== 'PLAYING' && st.phase !== 'ROUND_OVER');
+
+    if (st.phase === 'SCHUPFEN') {
+      this.renderSchupfenSlots();
+    }
+
+    if (st.phase === 'RECEIVED_VIEW') {
+      this.renderReceivedCards();
+    }
+
+    if (st.phase === 'PLAYING') {
+      const turnPlayer = st.players[st.turn];
+      if (st.turn === 0) {
+        this.setBanner(st.currentTrick ? `Your Turn — Beat ${st.currentTrick.combo.label} or Pass` : 'Your Turn — Lead any combination');
+      } else {
+        this.setBanner(`${turnPlayer.name} is thinking...`);
+      }
+      this.renderTrick();
+    }
+
+    this.renderHumanHand();
+    this.updateComboHelperAndButtons();
+  },
+
+  renderSchupfenSlots() {
+    const slots = Game.state.schupfenSlots;
+    for (const key of ['left', 'partner', 'right']) {
+      const el = document.getElementById(`schupfen-slot-${key}`);
+      el.innerHTML = '';
+      if (slots[key]) {
+        el.appendChild(this.createCardElement(slots[key], { mini: true }));
+      } else {
+        el.innerHTML = '<span class="text-[11px] text-slate-400">Click to place</span>';
+      }
+    }
+    const ready = !!(slots.left && slots.partner && slots.right);
+    document.getElementById('confirm-schupfen-btn').disabled = !ready;
+  },
+
+  renderReceivedCards() {
+    const recv = Game.state.receivedCards;
+    for (const key of ['left', 'partner', 'right']) {
+      const el = document.getElementById(`recv-from-${key}`);
+      el.innerHTML = '';
+      if (recv[key]) {
+        el.appendChild(this.createCardElement(recv[key], { mini: true }));
+      }
+    }
+  },
+
+  renderTrick() {
+    const trickEl = document.getElementById('current-trick-cards');
+    const ownerEl = document.getElementById('trick-owner-label');
+    const ptsEl = document.getElementById('trick-points-label');
+    const trick = Game.state.currentTrick;
+
+    trickEl.innerHTML = '';
+    if (!trick || !trick.latestCards) {
+      trickEl.innerHTML = '<span class="text-xs text-emerald-200/60 italic">Table is open — Lead any combination</span>';
+      ownerEl.textContent = '';
+      ptsEl.textContent = '';
+      return;
+    }
+
+    for (const c of trick.latestCards) {
+      trickEl.appendChild(this.createCardElement(c, { mini: false }));
+    }
+
+    const totalPts = trick.cards.reduce((s, c) => s + c.points, 0);
+    ownerEl.textContent = `Current High: ${Game.state.players[trick.owner].name} (${trick.combo.label})`;
+    ptsEl.textContent = `Pot: ${totalPts} pts`;
+  },
+
+  renderHumanHand() {
+    const container = document.getElementById('human-hand');
+    container.innerHTML = '';
+    const st = Game.state;
+    const human = st.players[0];
+
+    // Hide cards already placed in Schupfen slots
+    const slottedIds = new Set(
+      Object.values(st.schupfenSlots).filter(Boolean).map(c => c.id)
+    );
+
+    for (const card of human.hand) {
+      if (st.phase === 'SCHUPFEN' && slottedIds.has(card.id)) continue;
+
+      const isSelected = st.selectedCardIds.has(card.id);
+      const isHighlighted = st.receivedHighlightIds.has(card.id);
+      const cardEl = this.createCardElement(card, {
+        selected: isSelected,
+        highlighted: isHighlighted,
+        onClick: () => Game.toggleCardSelection(card.id)
+      });
+      container.appendChild(cardEl);
+    }
+  },
+
+  updateComboHelperAndButtons() {
+    const st = Game.state;
+    const human = st.players[0];
+    const helperEl = document.getElementById('combo-helper');
+    const btnPlay = document.getElementById('btn-play');
+    const btnPass = document.getElementById('btn-pass');
+    const btnBomb = document.getElementById('btn-bomb');
+    const btnTichu = document.getElementById('btn-call-tichu');
+
+    // Small Tichu button visibility
+    if (st.phase === 'PLAYING' && !human.tichuCall && !human.hasPlayedCard && human.hand.length === 14) {
+      btnTichu.classList.remove('hidden');
+    } else {
+      btnTichu.classList.add('hidden');
+    }
+
+    if (st.phase !== 'PLAYING') {
+      btnPlay.disabled = true;
+      btnPass.disabled = true;
+      btnBomb.classList.add('hidden');
+      helperEl.textContent = st.phase === 'SCHUPFEN' ? 'Select 1 card and click a pass slot' : 'Waiting...';
+      return;
+    }
+
+    const selectedCards = human.hand.filter(c => st.selectedCardIds.has(c.id));
+    const combo = Combo.evaluate(selectedCards, st.currentTrick);
+    const canBeat = combo && Combo.canBeat(combo, st.currentTrick);
+
+    if (selectedCards.length === 0) {
+      helperEl.textContent = 'Select cards to play';
+      helperEl.className = 'text-xs font-semibold px-3 py-1 rounded-xl bg-black/40 border border-white/10 text-slate-300';
+    } else if (!combo) {
+      helperEl.textContent = 'Invalid combination';
+      helperEl.className = 'text-xs font-semibold px-3 py-1 rounded-xl bg-rose-950/70 border border-rose-500/40 text-rose-300';
+    } else if (!canBeat) {
+      helperEl.textContent = `${combo.label} (Too low)`;
+      helperEl.className = 'text-xs font-semibold px-3 py-1 rounded-xl bg-amber-950/70 border border-amber-500/40 text-amber-300';
+    } else {
+      helperEl.textContent = `Ready: ${combo.label}`;
+      helperEl.className = 'text-xs font-semibold px-3 py-1 rounded-xl bg-emerald-950/80 border border-emerald-400/50 text-emerald-300';
+    }
+
+    const isMyTurn = st.turn === 0 && !st.pendingAction;
+    btnPlay.disabled = !(isMyTurn && canBeat);
+    btnPass.disabled = !(isMyTurn && st.currentTrick && st.currentTrick.combo);
+
+    // Out-of-turn Bomb interrupt button
+    if (!isMyTurn && st.currentTrick && st.currentTrick.combo && combo && combo.isBomb && canBeat) {
+      btnBomb.classList.remove('hidden');
+    } else {
+      btnBomb.classList.add('hidden');
+    }
+  }
+};
+
+window.onload = () => {
+  Game.init();
+};
+</script>
+</body>
+</html>
